@@ -27,7 +27,6 @@ import (
 	"github.com/xtls/xray-core/transport/internet/stat"
 	"github.com/xtls/xray-core/transport/internet/tls"
 	"github.com/xtls/xray-core/transport/pipe"
-	"golang.org/x/net/http2"
 )
 
 type dialerConf struct {
@@ -205,12 +204,17 @@ func createHTTPClient(dest net.Destination, streamSettings *internet.MemoryStrea
 		if keepAlivePeriod < 0 {
 			keepAlivePeriod = 0
 		}
-		transport = &http2.Transport{
-			DialTLSContext: func(ctxInner context.Context, network string, addr string, cfg *gotls.Config) (net.Conn, error) {
+		protocols := new(http.Protocols)
+		protocols.SetHTTP2(true)
+		transport = &http.Transport{
+			Protocols: protocols,
+			DialTLSContext: func(ctxInner context.Context, network, addr string) (net.Conn, error) {
 				return dialContext(ctxInner)
 			},
 			IdleConnTimeout: net.ConnIdleTimeout,
-			ReadIdleTimeout: keepAlivePeriod,
+			HTTP2: &http.HTTP2Config{
+				SendPingTimeout: keepAlivePeriod,
+			},
 		}
 	} else {
 		httpDialContext := func(ctxInner context.Context, network string, addr string) (net.Conn, error) {

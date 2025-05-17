@@ -10,7 +10,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/sha512"
-	gotls "crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
@@ -31,7 +30,6 @@ import (
 	"github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/transport/internet/tls"
 	"golang.org/x/crypto/hkdf"
-	"golang.org/x/net/http2"
 )
 
 type Conn struct {
@@ -159,9 +157,12 @@ func UClient(c net.Conn, config *Config, ctx context.Context, dest net.Destinati
 	}
 	if !uConn.Verified {
 		go func() {
+			protocols := new(http.Protocols)
+			protocols.SetHTTP2(true)
 			client := &http.Client{
-				Transport: &http2.Transport{
-					DialTLSContext: func(ctx context.Context, network, addr string, cfg *gotls.Config) (net.Conn, error) {
+				Transport: &http.Transport{
+					Protocols: protocols,
+					DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 						errors.LogInfo(ctx, fmt.Sprintf("REALITY localAddr: %v\tDialTLSContext\n", localAddr))
 						return uConn, nil
 					},

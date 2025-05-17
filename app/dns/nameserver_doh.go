@@ -3,7 +3,6 @@ package dns
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	go_errors "errors"
 	"fmt"
 	"io"
@@ -24,7 +23,6 @@ import (
 	dns_feature "github.com/xtls/xray-core/features/dns"
 	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/transport/internet"
-	"golang.org/x/net/http2"
 )
 
 // DoHNameServer implemented DNS over HTTPS (RFC8484) Wire Format,
@@ -50,11 +48,16 @@ func NewDoHNameServer(url *url.URL, dispatcher routing.Dispatcher, h2c bool, dis
 		dohURL:          url.String(),
 		clientIP:        clientIP,
 	}
+	protocols := new(http.Protocols)
+	protocols.SetHTTP2(true)
 	s.httpClient = &http.Client{
-		Transport: &http2.Transport{
+		Transport: &http.Transport{
 			IdleConnTimeout: net.ConnIdleTimeout,
-			ReadIdleTimeout: net.ChromeH2KeepAlivePeriod,
-			DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+			HTTP2: &http.HTTP2Config{
+				SendPingTimeout: net.ChromeH2KeepAlivePeriod,
+			},
+			Protocols: protocols,
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				dest, err := net.ParseDestination(network + ":" + addr)
 				if err != nil {
 					return nil, err
